@@ -1,20 +1,33 @@
 import os
 import logging
 import requests
+import threading
 from datetime import datetime, timedelta
 from pymongo import MongoClient
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # লোগিং সেটআপ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
+# ফ্লাস্ক অ্যাপ তৈরি (কোয়েবের পোর্ট ইস্যু সমাধান করার জন্য)
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Telegram Bot is running successfully!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port)
+
 # কনফিগারেশন
 TOKEN = os.getenv("BOT_TOKEN")
 FORCE_SUB_CHANNEL = os.getenv("FORCE_SUB_CHANNEL") 
 PREMIUM_CHANNEL_ID = os.getenv("PREMIUM_CHANNEL_ID") 
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
-MONGO_URI = os.getenv("MONGO_URI") # মঙ্গোডিবি কানেকশন স্ট্রিং
+MONGO_URI = os.getenv("MONGO_URI")
 
 # পেমেন্ট গেটওয়ে ক্রেমেনশিয়ালস
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -49,7 +62,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
     user_name = user.first_name
     
-    # ইউজারের ডাটাবেসে উপস্থিতি চেক ও সেভ করা
     existing_user = users_collection.find_one({"user_id": user_id})
     if not existing_user:
         users_collection.insert_one({
@@ -70,7 +82,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # প্রিমিয়াম স্ট্যাটাস চেক
     status_text = "সাধারণ মেম্বার ❌"
     if existing_user and existing_user.get("is_premium"):
         expiry = existing_user.get("expiry_date")
@@ -128,8 +139,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             plan = PLAN_PRICES[plan_key]
             user_id = query.from_user.id
             
-            # টেস্টের জন্য পেমেন্ট সফল ধরে সরাসরি প্রিমিয়াম আপডেট করার কোড (বা গেটওয়ে লিংক দিতে পারেন)
-            # বাস্তব পেমেন্ট গেটওয়ে সফল কলব্যাক আসার পর এই ডাটা আপডেট করতে হবে:
             expiry_date = datetime.utcnow() + timedelta(days=plan['days'])
             users_collection.update_one(
                 {"user_id": user_id},
@@ -140,7 +149,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             pay_keyboard = [
                 [InlineKeyboardButton("💳 পেমেন্ট করুন", url=payment_url)],
-                [InlineKeyboardButton("🔙 ফিরে যান", callback_data="back_home")]
+                [InlineKeyboardButton("🔙 ফিরে যান", callback_data="buy_plans")]
             ]
             await query.message.edit_caption(
                 caption=f"📦 **প্ল্যান:** {plan['name']}\n💵 **মূল্য:** ৳{plan['price']}\n\nনিচের লিংকে ক্লিক করে পেমেন্ট সম্পন্ন করুন:",
@@ -175,12 +184,19 @@ def main():
     if not TOKEN:
         print("Error: BOT_TOKEN is missing!")
         return
+    
+    # ফ্লাস্ক সার্ভার ব্যাকগ্রাউন্ডে রান করার জন্য থ্রেড চালু করা
+    t = threading.Thread(target=run_flask)
+    t.daemon = True
+    t.start()
+
+    # টেলিগ্রাম বট স্টার্ট করা
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
-    print("Database connected and Bot is running successfully...")
+    print("Database connected and Bot is running successfully with Flask port support...")
     application.run_polling()
 
 if __name__ == '__main__':
     main()
-  
+    
