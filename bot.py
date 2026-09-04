@@ -2,6 +2,7 @@ import os
 import logging
 import requests
 import asyncio
+import threading
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from flask import Flask
@@ -11,12 +12,12 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 # লোগিং সেটআপ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# ফ্লাস্ক অ্যাপ তৈরি (কোয়েবের পোর্ট রিকোয়ারমেন্ট পূরণের জন্য Gunicorn দ্বারা ব্যবহৃত হবে)
+# ফ্লাস্ক অ্যাপ তৈরি
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Telegram Bot is running successfully!"
+    return "Telegram Bot is running successfully with Threading!"
 
 # কনফিগারেশন
 TOKEN = os.getenv("BOT_TOKEN")
@@ -176,22 +177,27 @@ def create_gateway_payment(user_id, amount, plan_name):
         
     return f"https://yourpaymentgateway.com/pay?amount={amount}&user={user_id}"
 
+def run_flask():
+    port = int(os.getenv("PORT", 8000))
+    app.run(host="0.0.0.0", port=port)
+
 def main():
     if not TOKEN:
         print("Error: BOT_TOKEN is missing!")
         return
 
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    # ব্যাকগ্রাউন্ডে ফ্লাস্ক সার্ভার চালু করা যাতে Koyeb-এর পোর্ট রিকোয়ারমেন্ট পূরণ হয়
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    print("Flask server started in background thread...")
 
+    # টেলিগ্রাম বট অ্যাপ তৈরি ও পোলিং শুরু
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
     
-    print("Database connected and Bot is running successfully...")
+    print("Database connected and Telegram Bot is running successfully...")
     application.run_polling()
 
 if __name__ == '__main__':
