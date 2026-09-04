@@ -1,7 +1,6 @@
 import os
 import logging
 import requests
-import threading
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from flask import Flask
@@ -11,18 +10,14 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 # লোগিং সেটআপ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# ফ্লাস্ক অ্যাপ তৈরি (কোয়েবের পোর্ট ইস্যু সমাধান করার জন্য)
+# ফ্লাস্ক অ্যাপ তৈরি (কোয়েবের পোর্ট রিকোয়ারমেন্ট পূরণের জন্য)
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Telegram Bot is running successfully!"
 
-def run_flask():
-    port = int(os.environ.get("PORT", 8000))
-    app.run(host="0.0.0.0", port=port)
-
-# কনফিগারেশন (এভাবে লিখতে হবে)
+# কনফিগারেশন
 TOKEN = os.getenv("BOT_TOKEN")
 FORCE_SUB_CHANNEL = os.getenv("FORCE_SUB_CHANNEL") 
 PREMIUM_CHANNEL_ID = os.getenv("PREMIUM_CHANNEL_ID") 
@@ -184,17 +179,13 @@ def main():
     if not TOKEN:
         print("Error: BOT_TOKEN is missing!")
         return
-    
-    # ফ্লাস্ক সার্ভার ব্যাকগ্রাউন্ডে রান করার জন্য থ্রেড চালু করা
-    t = threading.Thread(target=run_flask)
-    t.daemon = True
-    t.start()
 
-    # টেলিগ্রাম বট স্টার্ট করা
+    # টেলিগ্রাম বট স্টার্ট করা (এটি এখন সরাসরি মূল থ্রেডে চলবে)
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
-    print("Database connected and Bot is running successfully with Flask port support...")
+    
+    print("Database connected and Bot is running successfully...")
     application.run_polling()
 
 if __name__ == '__main__':
