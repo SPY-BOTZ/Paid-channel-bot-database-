@@ -2,6 +2,7 @@ import os
 import logging
 import requests
 import asyncio
+import threading
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from flask import Flask
@@ -171,13 +172,35 @@ def create_gateway_payment(user_id, amount, plan_name):
         
     return f"https://yourpaymentgateway.com/pay?amount={amount}&user={user_id}"
 
-if __name__ == '__main__':
-    # ফ্লাস্ক অ্যাপ ব্যাকগ্রাউন্ড প্রসেসে চালুর জন্য গুনিকর্ন (gunicorn) ব্যবহার করা সবচেয়ে নিরাপদ
+def run_flask():
     port = int(os.getenv("PORT", 8000))
-    # সরাসরি ফ্লাস্ক রান করার পরিবর্তে gunicorn ব্যবহার করলে Koyeb-এর পোর্ট চেক নিয়ে কোনো ঝামেলা করবে না।
-    import subprocess
-    import sys
+    app.run(host="0.0.0.0", port=port, use_reloader=False)
+
+def main():
+    if not TOKEN:
+        print("Error: BOT_TOKEN is missing!")
+        return
+
+    # ফ্লাস্ক সার্ভার ব্যাকগ্রাউন্ড থ্রেডে চালু করা
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    # পাইথন ৩.১৪ লুপ ফিক্স
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    # টেলিগ্রাম বট রান করা
+    application = Application.builder().token(TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button_handler))
     
-    # ব্যাকগ্রাউন্ডে বট রান করার ব্যবস্থা বা সরাসরি গুনিকর্ন দিয়ে ফ্লাস্ক চালিয়ে টেলিগ্রাম বট ব্যাকগ্রাউন্ডে রাখা যায়।
-    # তবে সবচেয়ে সহজ হলো রান কমান্ডে `gunicorn bot:app` দিয়ে কোডে বট পোলিং রাখা।
+    print("Database connected and Telegram Bot is running successfully...")
+    application.run_polling()
+
+if __name__ == '__main__':
+    main()
     
