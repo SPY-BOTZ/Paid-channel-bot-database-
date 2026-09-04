@@ -22,12 +22,12 @@ def run_flask():
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port)
 
-# কনফিগারেশন
-TOKEN = os.getenv("8521919636:AAGHPEOvL6zvVfbH0vR2aZ6btDZVv4SIOYg")
-FORCE_SUB_CHANNEL = os.getenv("-1002547208138") 
-PREMIUM_CHANNEL_ID = os.getenv("-1002547208138") 
-ADMIN_ID = int(os.getenv("ADMIN_ID", "1249672673"))
-MONGO_URI = os.getenv("mongodb+srv://wajsarif461_db_user:TwacJh76mwpHHpjw@cluster0.biueyst.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+# কনফিগারেশন (এভাবে লিখতে হবে)
+TOKEN = os.getenv("BOT_TOKEN")
+FORCE_SUB_CHANNEL = os.getenv("FORCE_SUB_CHANNEL") 
+PREMIUM_CHANNEL_ID = os.getenv("PREMIUM_CHANNEL_ID") 
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+MONGO_URI = os.getenv("MONGO_URI")
 
 # পেমেন্ট গেটওয়ে ক্রেমেনশিয়ালস
 SECRET_KEY = os.getenv("SECRET_KEY")
