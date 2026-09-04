@@ -1,6 +1,7 @@
 import os
 import logging
 import requests
+import asyncio
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from flask import Flask
@@ -10,7 +11,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 # লোগিং সেটআপ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# ফ্লাস্ক অ্যাপ তৈরি (কোয়েবের পোর্ট রিকোয়ারমেন্ট পূরণের জন্য)
+# ফ্লাস্ক অ্যাপ তৈরি (কোয়েবের পোর্ট রিকোয়ারমেন্ট পূরণের জন্য Gunicorn দ্বারা ব্যবহৃত হবে)
 app = Flask(__name__)
 
 @app.route('/')
@@ -180,7 +181,12 @@ def main():
         print("Error: BOT_TOKEN is missing!")
         return
 
-    # টেলিগ্রাম বট স্টার্ট করা (এটি এখন সরাসরি মূল থ্রেডে চলবে)
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
