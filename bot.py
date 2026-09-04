@@ -2,22 +2,13 @@ import os
 import logging
 import requests
 import asyncio
-import threading
 from datetime import datetime, timedelta
 from pymongo import MongoClient
-from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # লোগিং সেটআপ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
-# ফ্লাস্ক অ্যাপ তৈরি
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Telegram Bot is running successfully with Threading!"
 
 # কনফিগারেশন
 TOKEN = os.getenv("BOT_TOKEN")
@@ -128,7 +119,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await query.message.edit_media(media=InputMediaPhoto(media="https://i.ibb.co/4gR9Z9y/plans.jpg", caption=plans_caption, parse_mode="Markdown"), reply_markup=InlineKeyboardMarkup(plans_keyboard))
         except Exception:
-            await query.edit_message_text(text=plans_caption, reply_markup=InlineKeyboardMarkup(plans_keyboard), parse_mode="Markdown")
+            await query.edit_message_text(text=plans_caption, reply_markup=InlineKeyboardMarkup(plans_keyboard), parse_Mode="Markdown")
 
     elif query.data.startswith("pay_"):
         plan_key = query.data.split("_")[1]
@@ -177,22 +168,18 @@ def create_gateway_payment(user_id, amount, plan_name):
         
     return f"https://yourpaymentgateway.com/pay?amount={amount}&user={user_id}"
 
-def run_flask():
-    port = int(os.getenv("PORT", 8000))
-    app.run(host="0.0.0.0", port=port)
-
 def main():
     if not TOKEN:
         print("Error: BOT_TOKEN is missing!")
         return
 
-    # ব্যাকগ্রাউন্ডে ফ্লাস্ক সার্ভার চালু করা যাতে Koyeb-এর পোর্ট রিকোয়ারমেন্ট পূরণ হয়
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    print("Flask server started in background thread...")
+    # পাইথন ৩.১৪ ইভেন্ট লুপ ফিক্স
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-    # টেলিগ্রাম বট অ্যাপ তৈরি ও পোলিং শুরু
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
